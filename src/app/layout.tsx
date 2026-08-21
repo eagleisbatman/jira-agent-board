@@ -10,7 +10,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
   title: "Jira Agent Board",
-  description: "Sign in so this instance knows who you are.",
+  description: "A self-hosted Jira board. Bring your own site and token.",
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

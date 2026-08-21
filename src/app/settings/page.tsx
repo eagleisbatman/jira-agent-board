@@ -6,43 +6,36 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 
-export default function HomePage() {
+export default function SettingsPage() {
   return (
     <div className="flex min-h-svh flex-col">
       <header className="flex items-center justify-between border-b px-4 py-3">
         <p className="text-sm font-medium">Jira Agent Board</p>
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href="/settings">Settings</Link>
+            <Link href="/">Board</Link>
           </Button>
           <ThemeToggle />
         </nav>
       </header>
-      <main className="flex flex-1 items-center justify-center px-4 py-16">
-        <Card className="w-full max-w-md">
+      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 py-10">
+        <Card>
           <CardHeader>
-            <CardTitle>No board yet</CardTitle>
+            <CardTitle>Jira connection</CardTitle>
             <CardDescription>
-              This instance is not talking to Jira. Nothing here requires a
-              Google account.
+              Site URL, project, and API token land here next. Not Google.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Add your Jira site and token in Settings. The board will load
-              from there.
+              Form is not wired yet. This page exists so the app has a place
+              to put Jira credentials without a login.
             </p>
           </CardContent>
-          <CardFooter className="justify-end">
-            <Button asChild>
-              <Link href="/settings">Open settings</Link>
-            </Button>
-          </CardFooter>
         </Card>
       </main>
     </div>
