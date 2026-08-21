@@ -117,29 +117,6 @@ function issuesFrom(data: unknown): Issue[] {
   return []
 }
 
-function columnsFromStatuses(data: unknown): ConfigColumn[] {
-  if (!Array.isArray(data)) return []
-  const columns: ConfigColumn[] = []
-  const seen = new Set<string>()
-  for (const type of data) {
-    if (!type || typeof type !== "object" || !("statuses" in type)) continue
-    const statuses = (type as { statuses?: unknown }).statuses
-    if (!Array.isArray(statuses)) continue
-    for (const status of statuses) {
-      if (!status || typeof status !== "object" || !("id" in status)) continue
-      const id = String((status as { id: unknown }).id)
-      if (!id || seen.has(id)) continue
-      seen.add(id)
-      const name =
-        "name" in status && typeof (status as { name: unknown }).name === "string"
-          ? (status as { name: string }).name
-          : id
-      columns.push({ name, statuses: [{ id }] })
-    }
-  }
-  return columns
-}
-
 async function loadBoardFromStatuses(
   settings: Settings,
   fetchFn: FetchFn,
@@ -150,6 +127,26 @@ async function loadBoardFromStatuses(
     fetchFn,
   )
   if (!statuses.ok) return statuses
+  const columns: ConfigColumn[] = []
+  const seen = new Set<string>()
+  if (Array.isArray(statuses.data)) {
+    for (const type of statuses.data) {
+      if (!type || typeof type !== "object" || !("statuses" in type)) continue
+      const list = (type as { statuses?: unknown }).statuses
+      if (!Array.isArray(list)) continue
+      for (const status of list) {
+        if (!status || typeof status !== "object" || !("id" in status)) continue
+        const id = String((status as { id: unknown }).id)
+        if (!id || seen.has(id)) continue
+        seen.add(id)
+        const name =
+          "name" in status && typeof (status as { name: unknown }).name === "string"
+            ? (status as { name: string }).name
+            : id
+        columns.push({ name, statuses: [{ id }] })
+      }
+    }
+  }
   const jql = `project = "${settings.projectKey.replaceAll('"', "")}"`
   const query = new URLSearchParams({
     jql,
@@ -165,7 +162,7 @@ async function loadBoardFromStatuses(
   return {
     ok: true,
     boardId: null,
-    columns: mapColumns(columnsFromStatuses(statuses.data), issuesFrom(issuesRes.data)),
+    columns: mapColumns(columns, issuesFrom(issuesRes.data)),
   }
 }
 

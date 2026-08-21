@@ -126,9 +126,9 @@ describe("loadBoard", () => {
 
   test("zero Agile boards uses statuses and search/jql", async () => {
     const seen: string[] = []
-    const fetchFn = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchFn = async (input: RequestInfo | URL) => {
       const url = String(input)
-      seen.push(`${init?.method ?? "GET"} ${url}`)
+      seen.push(url)
       if (url.endsWith("/myself")) return json({ accountId: "1" })
       if (url.includes("/project/") && url.endsWith("/statuses")) {
         return json([
