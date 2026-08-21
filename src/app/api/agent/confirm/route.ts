@@ -9,14 +9,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Add your site and token." }, { status: 400 })
   }
   const body = (await request.json()) as { proposalId?: string; confirm?: boolean }
-  const id = (body.proposalId ?? "").trim()
-  if (!id) {
-    return NextResponse.json(
-      { error: "That proposal expired. Ask again." },
-      { status: 404 },
-    )
-  }
-  const result = await confirmProposal(id, body.confirm === true, settings)
+  const result = await confirmProposal(
+    (body.proposalId ?? "").trim(),
+    body.confirm === true,
+    settings,
+  )
   if (!result.ok) {
     const status = result.status || 502
     return NextResponse.json({ error: result.message }, { status })

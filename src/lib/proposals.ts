@@ -1,12 +1,9 @@
 import { createIssue, transitionIssue, type WriteFail } from "./jira"
 import type { Settings } from "./settings"
 
-export type CreatePayload = { summary: string }
-export type TransitionPayload = { key: string; transitionId: string; name: string }
-
 export type Proposal =
-  | { id: string; kind: "create"; payload: CreatePayload }
-  | { id: string; kind: "transition"; payload: TransitionPayload }
+  | { id: string; kind: "create"; payload: { summary: string } }
+  | { id: string; kind: "transition"; payload: { key: string; transitionId: string; name: string } }
 
 const store = new Map<string, Proposal>()
 let seq = 0
@@ -38,10 +35,6 @@ export function proposeTransition(
   }
   store.set(proposal.id, proposal)
   return proposal
-}
-
-export function dropProposal(id: string) {
-  store.delete(id)
 }
 
 export async function confirmProposal(

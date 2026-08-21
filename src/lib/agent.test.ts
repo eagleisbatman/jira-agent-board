@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import {
-  confirmProposal,
-  dropProposal,
-  proposeCreate,
-  proposeTransition,
-} from "./proposals"
+import { confirmProposal, proposeCreate, proposeTransition } from "./proposals"
 import { agentError } from "./agent"
 import { setIssueLabels } from "./jira"
 import type { Settings } from "./settings"
@@ -78,7 +73,6 @@ describe("proposals", () => {
       return new Response(null, { status: 204 })
     })
     expect(result.ok).toBe(true)
-    dropProposal(proposal.id)
   })
 })
 

@@ -32,7 +32,6 @@ export function AgentChat({ projectKey }: { projectKey: string }) {
   const [sending, setSending] = useState(false)
   const [proposal, setProposal] = useState<Proposal | null>(null)
   const proposalRef = useRef<Proposal | null>(null)
-  const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function send() {
@@ -73,14 +72,12 @@ export function AgentChat({ projectKey }: { projectKey: string }) {
     if (!current) return
     proposalRef.current = null
     setProposal(null)
-    setPending(true)
     setError(null)
     const res = await fetch("/api/agent/confirm", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ proposalId: current.id, confirm: yes }),
     })
-    setPending(false)
     if (!yes) {
       setLines((now) => [...now, { role: "assistant", content: "Cancelled." }])
       return
@@ -136,7 +133,7 @@ export function AgentChat({ projectKey }: { projectKey: string }) {
       <Dialog
         open={proposal !== null}
         onOpenChange={(open) => {
-          if (!open && proposal && !pending) void confirm(false)
+          if (!open) void confirm(false)
         }}
       >
         <DialogContent>
@@ -156,12 +153,11 @@ export function AgentChat({ projectKey }: { projectKey: string }) {
             <Button
               type="button"
               variant="outline"
-              disabled={pending}
               onClick={() => void confirm(false)}
             >
               Cancel
             </Button>
-            <Button type="button" disabled={pending} onClick={() => void confirm(true)}>
+            <Button type="button" onClick={() => void confirm(true)}>
               Confirm
             </Button>
           </DialogFooter>

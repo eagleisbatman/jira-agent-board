@@ -63,7 +63,7 @@ async function ConnectedBoard({ settings }: { settings: Settings }) {
   if (columns.length === 0) {
     return (
       <div className="flex flex-1 flex-col gap-3">
-        <div className="flex flex-1 flex-col items-center justify-center gap-4">
+        <div className="flex flex-1 items-center justify-center">
           <Card className="w-full max-w-md">
             <CardHeader>
               <CardTitle>No issues</CardTitle>
