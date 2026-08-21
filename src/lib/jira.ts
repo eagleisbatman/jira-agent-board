@@ -172,10 +172,6 @@ export async function loadBoard(
   return { ok: true, boardId, columns: mapColumns(columns, issues) }
 }
 
-function authHeader(settings: Settings) {
-  return `Basic ${Buffer.from(`${settings.email}:${settings.apiToken}`).toString("base64")}`
-}
-
 async function jiraWrite(
   settings: Settings,
   resource: string,
@@ -187,7 +183,7 @@ async function jiraWrite(
       method: init.method,
       headers: {
         Accept: "application/json",
-        Authorization: authHeader(settings),
+        Authorization: `Basic ${Buffer.from(`${settings.email}:${settings.apiToken}`).toString("base64")}`,
         ...(init.body !== undefined
           ? { "Content-Type": "application/json" }
           : {}),

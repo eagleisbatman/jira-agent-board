@@ -119,13 +119,7 @@ export function CreateIssue() {
             <Button
               type="button"
               disabled={summary.trim() === ""}
-              onClick={() => {
-                if (summary.trim() === "") {
-                  setFieldError("Summary is required.")
-                  return
-                }
-                setConfirming(true)
-              }}
+              onClick={() => setConfirming(true)}
             >
               Create Task
             </Button>
