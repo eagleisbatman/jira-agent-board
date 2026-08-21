@@ -1,6 +1,6 @@
 # Setup
 
-Host this board. No Google account.
+Host this board.
 
 ## Local
 

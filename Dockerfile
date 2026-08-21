@@ -1,7 +1,3 @@
-# Multi-stage image for Railway. Bun for install/build; standalone output
-# at runtime. Pattern follows the official Next.js with-docker Bun example:
-# https://github.com/vercel/next.js/blob/canary/examples/with-docker/Dockerfile.bun
-
 FROM oven/bun:1 AS dependencies
 
 WORKDIR /app
@@ -21,7 +17,6 @@ COPY . .
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV AUTH_SECRET=build-time-placeholder
-ENV AUTH_TRUST_HOST=true
 
 RUN bun run build
 
