@@ -29,8 +29,18 @@ export function jiraMessage(status: number): string {
   if (status === 401) return "Token rejected."
   if (status === 403) return "No permission for this project."
   if (status === 404) return "Site, project, or board not found."
+  if (status === 409) return "Jira rejected the change."
+  if (status === 400) return "Could not save this issue."
   return "Could not reach Jira."
 }
+
+export type WriteFail = {
+  ok: false
+  status: 400 | 401 | 403 | 404 | 409 | 0
+  message: string
+}
+
+export type Transition = { id: string; name: string }
 
 type FetchFn = typeof fetch
 
@@ -161,3 +171,108 @@ export async function loadBoard(
 
   return { ok: true, boardId, columns: mapColumns(columns, issues) }
 }
+
+function authHeader(settings: Settings) {
+  return `Basic ${Buffer.from(`${settings.email}:${settings.apiToken}`).toString("base64")}`
+}
+
+async function jiraWrite(
+  settings: Settings,
+  resource: string,
+  fetchFn: FetchFn,
+  init: { method: string; body?: unknown },
+): Promise<{ ok: true; data: unknown } | WriteFail> {
+  try {
+    const res = await fetchFn(`${settings.siteUrl}${resource}`, {
+      method: init.method,
+      headers: {
+        Accept: "application/json",
+        Authorization: authHeader(settings),
+        ...(init.body !== undefined
+          ? { "Content-Type": "application/json" }
+          : {}),
+      },
+      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+    })
+    if (
+      res.status === 400 ||
+      res.status === 401 ||
+      res.status === 403 ||
+      res.status === 404 ||
+      res.status === 409
+    ) {
+      return { ok: false, status: res.status, message: jiraMessage(res.status) }
+    }
+    if (!res.ok) {
+      return { ok: false, status: 0, message: jiraMessage(0) }
+    }
+    const text = await res.text()
+    return { ok: true, data: text ? JSON.parse(text) : null }
+  } catch {
+    return { ok: false, status: 0, message: jiraMessage(0) }
+  }
+}
+
+export async function createIssue(
+  settings: Settings,
+  summary: string,
+  fetchFn: FetchFn = fetch,
+): Promise<{ ok: true; key: string } | WriteFail> {
+  const result = await jiraWrite(settings, "/rest/api/3/issue", fetchFn, {
+    method: "POST",
+    body: {
+      fields: {
+        project: { key: settings.projectKey },
+        summary,
+        issuetype: { name: "Task" },
+      },
+    },
+  })
+  if (!result.ok) return result
+  const key =
+    result.data && typeof result.data === "object" && "key" in result.data
+      ? String((result.data as { key: string }).key)
+      : ""
+  if (!key) {
+    return { ok: false, status: 0, message: jiraMessage(0) }
+  }
+  return { ok: true, key }
+}
+
+export async function listTransitions(
+  settings: Settings,
+  key: string,
+  fetchFn: FetchFn = fetch,
+): Promise<{ ok: true; transitions: Transition[] } | WriteFail> {
+  const result = await jiraGet(
+    settings,
+    `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`,
+    fetchFn,
+  )
+  if (!result.ok) return result
+  const raw =
+    result.data && typeof result.data === "object" && "transitions" in result.data
+      ? (result.data as { transitions: { id: string; name: string }[] }).transitions
+      : []
+  return {
+    ok: true,
+    transitions: raw.map((item) => ({ id: String(item.id), name: item.name })),
+  }
+}
+
+export async function transitionIssue(
+  settings: Settings,
+  key: string,
+  transitionId: string,
+  fetchFn: FetchFn = fetch,
+): Promise<{ ok: true } | WriteFail> {
+  const result = await jiraWrite(
+    settings,
+    `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`,
+    fetchFn,
+    { method: "POST", body: { transition: { id: transitionId } } },
+  )
+  if (!result.ok) return result
+  return { ok: true }
+}
+

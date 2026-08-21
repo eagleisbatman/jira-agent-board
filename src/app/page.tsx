@@ -2,6 +2,8 @@ import Link from "next/link"
 
 import { AppHeader } from "@/components/app-header"
 import { BoardError } from "@/components/board-error"
+import { CreateIssue } from "@/components/create-issue"
+import { MoveIssue } from "@/components/move-issue"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -59,12 +61,15 @@ async function ConnectedBoard({ settings }: { settings: Settings }) {
   const columns = result.columns
   if (columns.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>No issues</CardTitle>
             <CardDescription>{settings.projectKey} is connected.</CardDescription>
           </CardHeader>
+          <CardFooter className="justify-end">
+            <CreateIssue />
+          </CardFooter>
         </Card>
       </div>
     )
@@ -74,9 +79,12 @@ async function ConnectedBoard({ settings }: { settings: Settings }) {
 
   return (
     <div className="flex flex-1 flex-col gap-3">
-      {total === 0 ? (
-        <p className="text-sm text-muted-foreground">{settings.projectKey} is connected.</p>
-      ) : null}
+      <div className={`flex items-center gap-3 ${total === 0 ? "justify-between" : "justify-end"}`}>
+        {total === 0 ? (
+          <p className="text-sm text-muted-foreground">{settings.projectKey} is connected.</p>
+        ) : null}
+        <CreateIssue />
+      </div>
       <div className="flex flex-1 gap-3 overflow-x-auto">
         {columns.map((column) => (
           <section key={column.name} className="w-72 shrink-0 space-y-2">
@@ -90,8 +98,9 @@ async function ConnectedBoard({ settings }: { settings: Settings }) {
                   <CardDescription>{card.key}</CardDescription>
                   <CardTitle>{card.summary}</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  {card.assignee ?? "Unassigned"}
+                <CardContent className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                  <span>{card.assignee ?? "Unassigned"}</span>
+                  <MoveIssue issueKey={card.key} />
                 </CardContent>
               </Card>
             ))}
