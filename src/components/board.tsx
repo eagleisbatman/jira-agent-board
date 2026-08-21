@@ -10,18 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { matchesAfterDrop } from "@/lib/drag"
+import { pendingFromDrop, preview, type DropPending } from "@/lib/drag"
 import type { Card as IssueCard, Column, Transition } from "@/lib/jira"
 
-type Pending = {
-  key: string
-  to: string
-  matches: Transition[] | null
-  error: string | null
-}
-
 export function Board({ columns }: { columns: Column[] }) {
-  const [pending, setPending] = useState<Pending | null>(null)
+  const [pending, setPending] = useState<DropPending | null>(null)
   const shown = preview(columns, pending)
   const matches = pending?.matches
   const seed =
@@ -47,38 +40,36 @@ export function Board({ columns }: { columns: Column[] }) {
       matches: null,
       error: null,
     })
-    const res = await fetch(
-      `/api/issues/${encodeURIComponent(payload.key)}/transitions`,
-    )
-    const data = (await res.json()) as {
-      transitions?: Transition[]
-      error?: { message?: string }
+    try {
+      const res = await fetch(
+        `/api/issues/${encodeURIComponent(payload.key)}/transitions`,
+      )
+      const data = (await res.json()) as {
+        transitions?: Transition[]
+        error?: { message?: string }
+      }
+      setPending(
+        pendingFromDrop(
+          payload.key,
+          payload.from,
+          dest.name,
+          dest.statusIds,
+          res.ok
+            ? (data.transitions ?? [])
+            : (data.error?.message ?? "Could not reach Jira."),
+        ),
+      )
+    } catch {
+      setPending(
+        pendingFromDrop(
+          payload.key,
+          payload.from,
+          dest.name,
+          dest.statusIds,
+          "Could not reach Jira.",
+        ),
+      )
     }
-    if (!res.ok) {
-      setPending({
-        key: payload.key,
-        to: dest.name,
-        matches: [],
-        error: data.error?.message ?? "Could not reach Jira.",
-      })
-      return
-    }
-    const intent = matchesAfterDrop(
-      payload.from,
-      dest.name,
-      data.transitions ?? [],
-      dest.statusIds,
-    )
-    if (intent === "noop") {
-      setPending(null)
-      return
-    }
-    setPending({
-      key: payload.key,
-      to: dest.name,
-      matches: intent,
-      error: null,
-    })
   }
 
   return (
@@ -155,18 +146,3 @@ function IssueCardView({
   )
 }
 
-function preview(columns: Column[], pending: Pending | null): Column[] {
-  if (!pending) return columns
-  if (pending.matches !== null && pending.matches.length === 0) return columns
-  let card: IssueCard | undefined
-  for (const column of columns) {
-    card = column.cards.find((item) => item.key === pending.key)
-    if (card) break
-  }
-  if (!card) return columns
-  return columns.map((column) => {
-    const cards = column.cards.filter((item) => item.key !== pending.key)
-    if (column.name === pending.to) return { ...column, cards: [...cards, card] }
-    return { ...column, cards }
-  })
-}
