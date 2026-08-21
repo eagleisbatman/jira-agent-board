@@ -10,13 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { matchesAfterDrop, type DragTransition } from "@/lib/drag"
-import type { Card as IssueCard, Column } from "@/lib/jira"
+import { matchesAfterDrop } from "@/lib/drag"
+import type { Card as IssueCard, Column, Transition } from "@/lib/jira"
 
 type Pending = {
   key: string
   to: string
-  matches: DragTransition[] | null
+  matches: Transition[] | null
   error: string | null
 }
 
@@ -51,7 +51,7 @@ export function Board({ columns }: { columns: Column[] }) {
       `/api/issues/${encodeURIComponent(payload.key)}/transitions`,
     )
     const data = (await res.json()) as {
-      transitions?: DragTransition[]
+      transitions?: Transition[]
       error?: { message?: string }
     }
     if (!res.ok) {
