@@ -8,6 +8,7 @@ export type Card = {
 
 export type Column = {
   name: string
+  statusIds: string[]
   cards: Card[]
 }
 
@@ -40,7 +41,7 @@ export type WriteFail = {
   message: string
 }
 
-export type Transition = { id: string; name: string }
+export type Transition = { id: string; name: string; to: { id: string } }
 
 type FetchFn = typeof fetch
 
@@ -105,7 +106,7 @@ function mapColumns(columns: ConfigColumn[], issues: Issue[]): Column[] {
         assignee: issue.fields?.assignee?.displayName ?? null,
       })
     }
-    return { name: column.name, cards }
+    return { name: column.name, statusIds: [...statusIds], cards }
   })
 }
 
@@ -248,11 +249,17 @@ export async function listTransitions(
   if (!result.ok) return result
   const raw =
     result.data && typeof result.data === "object" && "transitions" in result.data
-      ? (result.data as { transitions: { id: string; name: string }[] }).transitions
+      ? (result.data as {
+          transitions: { id: string; name: string; to?: { id?: string } }[]
+        }).transitions
       : []
   return {
     ok: true,
-    transitions: raw.map((item) => ({ id: String(item.id), name: item.name })),
+    transitions: raw.map((item) => ({
+      id: String(item.id),
+      name: item.name,
+      to: { id: String(item.to?.id ?? "") },
+    })),
   }
 }
 

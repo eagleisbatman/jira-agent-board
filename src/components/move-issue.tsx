@@ -16,13 +16,24 @@ import {
 
 type Transition = { id: string; name: string }
 
-export function MoveIssue({ issueKey }: { issueKey: string }) {
+export function MoveIssue({
+  issueKey,
+  seed,
+  onClosed,
+}: {
+  issueKey: string
+  seed?: { transitions: Transition[]; picked?: Transition | null; error?: string }
+  onClosed?: () => void
+}) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [transitions, setTransitions] = useState<Transition[] | null>(null)
-  const [picked, setPicked] = useState<Transition | null>(null)
+  const seeded = seed !== undefined
+  const [open, setOpen] = useState(seeded)
+  const [transitions, setTransitions] = useState<Transition[] | null>(
+    seed?.transitions ?? null,
+  )
+  const [picked, setPicked] = useState<Transition | null>(seed?.picked ?? null)
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(seed?.error ?? null)
 
   async function load() {
     setError(null)
@@ -57,27 +68,32 @@ export function MoveIssue({ issueKey }: { issueKey: string }) {
       return
     }
     setOpen(false)
+    onClosed?.()
     router.refresh()
   }
 
+  function close(next: boolean) {
+    setOpen(next)
+    if (next && !seeded) void load()
+    if (!next) {
+      if (!seeded) {
+        setTransitions(null)
+        setPicked(null)
+        setError(null)
+      }
+      onClosed?.()
+    }
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (next) void load()
-        if (!next) {
-          setTransitions(null)
-          setPicked(null)
-          setError(null)
-        }
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant="ghost" size="sm">
-          Move
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={close}>
+      {seeded ? null : (
+        <DialogTrigger asChild>
+          <Button type="button" variant="ghost" size="sm">
+            Move
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
@@ -90,7 +106,9 @@ export function MoveIssue({ issueKey }: { issueKey: string }) {
         ) : picked ? null : (
           <div className="flex flex-col gap-1">
             {transitions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No statuses to move to.</p>
+              error ? null : (
+                <p className="text-sm text-muted-foreground">No moves available.</p>
+              )
             ) : (
               transitions.map((item) => (
                 <Button
@@ -112,7 +130,14 @@ export function MoveIssue({ issueKey }: { issueKey: string }) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setPicked(null)}
+              onClick={() => {
+                if (seeded) {
+                  setOpen(false)
+                  onClosed?.()
+                  return
+                }
+                setPicked(null)
+              }}
               disabled={pending}
             >
               Cancel

@@ -67,6 +67,7 @@ describe("loadBoard", () => {
     if (!result.ok) throw new Error("expected ok")
     expect(result.boardId).toBe("7")
     expect(result.columns.map((c) => c.name)).toEqual(["To Do", "Done"])
+    expect(result.columns.map((c) => c.statusIds)).toEqual([["1"], ["3"]])
     expect(result.columns.every((c) => c.cards.length === 0)).toBe(true)
   })
 

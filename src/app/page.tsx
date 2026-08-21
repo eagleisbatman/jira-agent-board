@@ -4,11 +4,10 @@ import { AppHeader } from "@/components/app-header"
 import { BoardError } from "@/components/board-error"
 import { AgentChat } from "@/components/agent-chat"
 import { CreateIssue } from "@/components/create-issue"
-import { MoveIssue } from "@/components/move-issue"
+import { Board } from "@/components/board"
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
@@ -89,28 +88,7 @@ async function ConnectedBoard({ settings }: { settings: Settings }) {
         ) : null}
         <CreateIssue />
       </div>
-      <div className="flex flex-1 gap-3 overflow-x-auto">
-        {columns.map((column) => (
-          <section key={column.name} className="w-72 shrink-0 space-y-2">
-            <h2 className="text-sm font-medium">
-              {column.name}{" "}
-              <span className="text-muted-foreground">{column.cards.length}</span>
-            </h2>
-            {column.cards.map((card) => (
-              <Card key={card.key} size="sm">
-                <CardHeader>
-                  <CardDescription>{card.key}</CardDescription>
-                  <CardTitle>{card.summary}</CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-                  <span>{card.assignee ?? "Unassigned"}</span>
-                  <MoveIssue issueKey={card.key} />
-                </CardContent>
-              </Card>
-            ))}
-          </section>
-        ))}
-      </div>
+      <Board columns={columns} />
       <AgentChat projectKey={settings.projectKey} />
     </div>
   )

@@ -67,16 +67,16 @@ describe("listTransitions", () => {
     const result = await listTransitions(settings, "ABC-1", async () =>
       json({
         transitions: [
-          { id: "21", name: "In Progress" },
-          { id: "31", name: "Done" },
+          { id: "21", name: "In Progress", to: { id: "2" } },
+          { id: "31", name: "Done", to: { id: "3" } },
         ],
       }),
     )
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("expected ok")
     expect(result.transitions).toEqual([
-      { id: "21", name: "In Progress" },
-      { id: "31", name: "Done" },
+      { id: "21", name: "In Progress", to: { id: "2" } },
+      { id: "31", name: "Done", to: { id: "3" } },
     ])
   })
 })
