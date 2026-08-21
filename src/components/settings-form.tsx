@@ -123,7 +123,7 @@ export function SettingsForm({ initial }: { initial: PublicSettings }) {
           />
           <Field
             id="boardId"
-            label="Board id"
+            label="Board id (optional)"
             value={boardId}
             onChange={setBoardId}
             hint="Leave blank to use the first Kanban board."

@@ -1,7 +1,7 @@
 import Link from "next/link"
 
 import { AppHeader } from "@/components/app-header"
-import { RetryButton } from "@/components/retry-button"
+import { BoardError } from "@/components/board-error"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { loadBoard } from "@/lib/jira"
-import { readSettings, writeSettings } from "@/lib/settings"
+import { readSettings, writeSettings, type Settings } from "@/lib/settings"
 
 export const dynamic = "force-dynamic"
 
@@ -47,31 +47,13 @@ function NoConnection() {
   )
 }
 
-async function ConnectedBoard({
-  settings,
-}: {
-  settings: NonNullable<Awaited<ReturnType<typeof readSettings>>>
-}) {
+async function ConnectedBoard({ settings }: { settings: Settings }) {
   const result = await loadBoard(settings)
   if (result.ok && result.boardId !== settings.boardId) {
     await writeSettings({ ...settings, boardId: result.boardId })
   }
   if (!result.ok) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>{result.message}</CardTitle>
-          </CardHeader>
-          <CardFooter className="justify-end gap-2">
-            <Button asChild variant="outline">
-              <Link href="/settings">Open settings</Link>
-            </Button>
-            <RetryButton />
-          </CardFooter>
-        </Card>
-      </div>
-    )
+    return <BoardError message={result.message} />
   }
 
   const columns = result.columns
@@ -102,9 +84,6 @@ async function ConnectedBoard({
               {column.name}{" "}
               <span className="text-muted-foreground">{column.cards.length}</span>
             </h2>
-            {column.cards.length === 0 && total === 0 ? (
-              <p className="text-sm text-muted-foreground">No issues</p>
-            ) : null}
             {column.cards.map((card) => (
               <Card key={card.key} size="sm">
                 <CardHeader>

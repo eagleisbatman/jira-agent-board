@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
-import { jiraMessage, loadBoard, type Settings } from "./jira"
+import { jiraMessage, loadBoard } from "./jira"
+import type { Settings } from "./settings"
 
 const settings: Settings = {
   siteUrl: "https://acme.atlassian.net",

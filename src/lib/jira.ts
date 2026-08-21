@@ -1,7 +1,5 @@
 import type { Settings } from "./settings"
 
-export type { Settings }
-
 export type Card = {
   key: string
   summary: string
@@ -75,17 +73,16 @@ type ConfigColumn = {
   statuses?: { id: string }[]
 }
 
-function mapColumns(
-  columns: ConfigColumn[],
-  issues: {
-    key: string
-    fields?: {
-      summary?: string
-      status?: { id?: string; name?: string }
-      assignee?: { displayName?: string } | null
-    }
-  }[],
-): Column[] {
+type Issue = {
+  key: string
+  fields?: {
+    summary?: string
+    status?: { id?: string }
+    assignee?: { displayName?: string } | null
+  }
+}
+
+function mapColumns(columns: ConfigColumn[], issues: Issue[]): Column[] {
   return columns.map((column) => {
     const statusIds = new Set((column.statuses ?? []).map((status) => status.id))
     const cards: Card[] = []
@@ -158,7 +155,7 @@ export async function loadBoard(
     issuesRes.data &&
     typeof issuesRes.data === "object" &&
     "issues" in issuesRes.data
-      ? ((issuesRes.data as { issues: Parameters<typeof mapColumns>[1] }).issues ??
+      ? ((issuesRes.data as { issues: Issue[] }).issues ??
         [])
       : []
 
