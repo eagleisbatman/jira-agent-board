@@ -1,6 +1,7 @@
 import Link from "next/link"
 
-import { ThemeToggle } from "@/components/theme-toggle"
+import { AppHeader } from "@/components/app-header"
+import { RetryButton } from "@/components/retry-button"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -10,41 +11,114 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { loadBoard } from "@/lib/jira"
+import { readSettings, writeSettings } from "@/lib/settings"
 
-export default function HomePage() {
+export const dynamic = "force-dynamic"
+
+export default async function HomePage() {
+  const settings = await readSettings()
+
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="flex items-center justify-between border-b px-4 py-3">
-        <p className="text-sm font-medium">Jira Agent Board</p>
-        <nav className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/settings">Settings</Link>
+      <AppHeader />
+      <main className="flex flex-1 flex-col px-4 py-6">
+        {settings === null ? <NoConnection /> : <ConnectedBoard settings={settings} />}
+      </main>
+    </div>
+  )
+}
+
+function NoConnection() {
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>No Jira connection</CardTitle>
+          <CardDescription>Add your site and token.</CardDescription>
+        </CardHeader>
+        <CardFooter className="justify-end">
+          <Button asChild>
+            <Link href="/settings">Open settings</Link>
           </Button>
-          <ThemeToggle />
-        </nav>
-      </header>
-      <main className="flex flex-1 items-center justify-center px-4 py-16">
+        </CardFooter>
+      </Card>
+    </div>
+  )
+}
+
+async function ConnectedBoard({
+  settings,
+}: {
+  settings: NonNullable<Awaited<ReturnType<typeof readSettings>>>
+}) {
+  const result = await loadBoard(settings)
+  if (result.ok && result.boardId !== settings.boardId) {
+    await writeSettings({ ...settings, boardId: result.boardId })
+  }
+  if (!result.ok) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>No board yet</CardTitle>
-            <CardDescription>
-              This instance is not talking to Jira. Nothing here requires a
-              Google account.
-            </CardDescription>
+            <CardTitle>{result.message}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Add your Jira site and token in Settings. The board will load
-              from there.
-            </p>
-          </CardContent>
-          <CardFooter className="justify-end">
-            <Button asChild>
+          <CardFooter className="justify-end gap-2">
+            <Button asChild variant="outline">
               <Link href="/settings">Open settings</Link>
             </Button>
+            <RetryButton />
           </CardFooter>
         </Card>
-      </main>
+      </div>
+    )
+  }
+
+  const columns = result.columns
+  if (columns.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>No issues</CardTitle>
+            <CardDescription>{settings.projectKey} is connected.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    )
+  }
+
+  const total = columns.reduce((sum, column) => sum + column.cards.length, 0)
+
+  return (
+    <div className="flex flex-1 flex-col gap-3">
+      {total === 0 ? (
+        <p className="text-sm text-muted-foreground">{settings.projectKey} is connected.</p>
+      ) : null}
+      <div className="flex flex-1 gap-3 overflow-x-auto">
+        {columns.map((column) => (
+          <section key={column.name} className="w-72 shrink-0 space-y-2">
+            <h2 className="text-sm font-medium">
+              {column.name}{" "}
+              <span className="text-muted-foreground">{column.cards.length}</span>
+            </h2>
+            {column.cards.length === 0 && total === 0 ? (
+              <p className="text-sm text-muted-foreground">No issues</p>
+            ) : null}
+            {column.cards.map((card) => (
+              <Card key={card.key} size="sm">
+                <CardHeader>
+                  <CardDescription>{card.key}</CardDescription>
+                  <CardTitle>{card.summary}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  {card.assignee ?? "Unassigned"}
+                </CardContent>
+              </Card>
+            ))}
+          </section>
+        ))}
+      </div>
     </div>
   )
 }
