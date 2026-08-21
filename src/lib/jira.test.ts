@@ -319,4 +319,92 @@ describe("loadBoard", () => {
       { key: "FP-1", summary: "Created", assignee: null },
     ])
   })
+
+  test("same status name on two ids does not duplicate the card", async () => {
+    const fetchFn = async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/myself")) return json({ accountId: "1" })
+      if (url.includes("/project/") && url.endsWith("/statuses")) {
+        return json([
+          {
+            id: "10000",
+            name: "Story",
+            statuses: [{ id: "1", name: "To Do" }],
+          },
+          {
+            id: "10001",
+            name: "Bug",
+            statuses: [{ id: "2", name: "To Do" }],
+          },
+        ])
+      }
+      if (url.includes("/project/")) return json({ key: "ABC" })
+      if (url.includes("/board?") && !url.includes("/issue")) {
+        return json({ values: [] })
+      }
+      if (url.includes("/search/jql")) {
+        return json({
+          isLast: true,
+          issues: [
+            {
+              key: "FP-1",
+              fields: {
+                summary: "Created",
+                status: { id: 1, name: "To Do" },
+                assignee: null,
+              },
+            },
+          ],
+        })
+      }
+      return json({}, 404)
+    }
+    const result = await loadBoard(settings, fetchFn)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("expected ok")
+    expect(result.columns.map((c) => c.statusIds)).toEqual([["1"], ["2"]])
+    expect(result.columns[0]?.cards.map((c) => c.key)).toEqual(["FP-1"])
+    expect(result.columns[1]?.cards).toEqual([])
+  })
+
+  test("no-board search is POST /search/jql with fields", async () => {
+    let search: { method?: string; body?: { fields?: string[] } } = {}
+    const fetchFn = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith("/myself")) return json({ accountId: "1" })
+      if (url.includes("/project/") && url.endsWith("/statuses")) {
+        return json([
+          { id: "10000", name: "Task", statuses: [{ id: "1", name: "To Do" }] },
+        ])
+      }
+      if (url.includes("/project/")) return json({ key: "ABC" })
+      if (url.includes("/board?") && !url.includes("/issue")) {
+        return json({ values: [] })
+      }
+      if (url.includes("/search/jql")) {
+        search = {
+          method: init?.method,
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        }
+        return json({
+          isLast: true,
+          issues: [
+            {
+              key: "FP-1",
+              fields: {
+                summary: "Created",
+                status: { id: "1", name: "To Do" },
+                assignee: null,
+              },
+            },
+          ],
+        })
+      }
+      return json({}, 404)
+    }
+    const result = await loadBoard(settings, fetchFn)
+    expect(result.ok).toBe(true)
+    expect(search.method).toBe("POST")
+    expect(search.body?.fields).toEqual(["summary", "status", "assignee"])
+  })
 })

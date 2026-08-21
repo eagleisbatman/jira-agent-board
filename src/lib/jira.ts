@@ -107,11 +107,7 @@ function mapColumns(columns: ConfigColumn[], issues: Issue[]): Column[] {
     for (const issue of issues) {
       const statusId =
         issue.fields?.status?.id != null ? String(issue.fields.status.id) : ""
-      const statusName = issue.fields?.status?.name
-      const matched =
-        (statusId !== "" && statusIds.has(statusId)) ||
-        (!!statusName && statusName === column.name)
-      if (!matched) continue
+      if (!statusId || !statusIds.has(statusId)) continue
       cards.push({
         key: issue.key,
         summary: issue.fields?.summary ?? "",
