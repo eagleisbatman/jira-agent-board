@@ -240,4 +240,83 @@ describe("loadBoard", () => {
     if (!result.ok) throw new Error("expected ok")
     expect(result.boardId).toBeNull()
   })
+
+  test("search/jql id-only envelope maps onto status lanes", async () => {
+    const fetchFn = async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/myself")) return json({ accountId: "1" })
+      if (url.includes("/project/") && url.endsWith("/statuses")) {
+        return json([
+          { id: "10000", name: "Task", statuses: [{ id: "1", name: "To Do" }] },
+        ])
+      }
+      if (url.includes("/project/")) return json({ key: "ABC" })
+      if (url.includes("/board?") && !url.includes("/issue")) {
+        return json({ values: [] })
+      }
+      if (url.includes("/search/jql")) {
+        return json({ isLast: true, issues: [{ id: "10001", key: "FP-1" }] })
+      }
+      if (url.includes("/issue/bulkfetch")) {
+        return json({
+          issues: [
+            {
+              id: "10001",
+              key: "FP-1",
+              fields: {
+                summary: "Created",
+                status: { id: 1, name: "To Do" },
+                assignee: null,
+              },
+            },
+          ],
+        })
+      }
+      return json({}, 404)
+    }
+    const result = await loadBoard(settings, fetchFn)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("expected ok")
+    expect(result.columns[0]?.cards).toEqual([
+      { key: "FP-1", summary: "Created", assignee: null },
+    ])
+  })
+
+  test("numeric status id still lands on the lane", async () => {
+    const fetchFn = async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/myself")) return json({ accountId: "1" })
+      if (url.includes("/project/") && url.endsWith("/statuses")) {
+        return json([
+          { id: "10000", name: "Task", statuses: [{ id: "1", name: "To Do" }] },
+        ])
+      }
+      if (url.includes("/project/")) return json({ key: "ABC" })
+      if (url.includes("/board?") && !url.includes("/issue")) {
+        return json({ values: [] })
+      }
+      if (url.includes("/search/jql")) {
+        return json({
+          isLast: true,
+          issues: [
+            {
+              key: "FP-1",
+              fields: {
+                summary: "Created",
+                status: { id: 1, name: "To Do" },
+                assignee: null,
+              },
+            },
+          ],
+        })
+      }
+      return json({}, 404)
+    }
+    const result = await loadBoard(settings, fetchFn)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("expected ok")
+    expect(result.columns[0]?.cards).toEqual([
+      { key: "FP-1", summary: "Created", assignee: null },
+    ])
+  })
 })

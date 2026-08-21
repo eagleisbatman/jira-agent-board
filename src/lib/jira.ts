@@ -49,6 +49,7 @@ async function jiraGet(
   settings: Settings,
   resource: string,
   fetchFn: FetchFn,
+  init?: { method?: string; body?: unknown },
 ): Promise<{ ok: true; data: unknown } | BoardFail> {
   const url = `${settings.siteUrl}${resource}`
   const auth = Buffer.from(`${settings.email}:${settings.apiToken}`).toString(
@@ -56,10 +57,13 @@ async function jiraGet(
   )
   try {
     const res = await fetchFn(url, {
+      method: init?.method,
       headers: {
         Accept: "application/json",
         Authorization: `Basic ${auth}`,
+        ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
+      body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
     })
     if (res.status === 401 || res.status === 403 || res.status === 404) {
       return { ok: false, status: res.status, message: jiraMessage(res.status) }
@@ -86,20 +90,28 @@ type ConfigColumn = {
 
 type Issue = {
   key: string
+  id?: string
   fields?: {
     summary?: string
-    status?: { id?: string }
+    status?: { id?: string | number; name?: string }
     assignee?: { displayName?: string } | null
   }
 }
 
 function mapColumns(columns: ConfigColumn[], issues: Issue[]): Column[] {
   return columns.map((column) => {
-    const statusIds = new Set((column.statuses ?? []).map((status) => status.id))
+    const statusIds = new Set(
+      (column.statuses ?? []).map((status) => String(status.id)),
+    )
     const cards: Card[] = []
     for (const issue of issues) {
-      const statusId = issue.fields?.status?.id
-      if (!statusId || !statusIds.has(statusId)) continue
+      const statusId =
+        issue.fields?.status?.id != null ? String(issue.fields.status.id) : ""
+      const statusName = issue.fields?.status?.name
+      const matched =
+        (statusId !== "" && statusIds.has(statusId)) ||
+        (!!statusName && statusName === column.name)
+      if (!matched) continue
       cards.push({
         key: issue.key,
         summary: issue.fields?.summary ?? "",
@@ -111,10 +123,52 @@ function mapColumns(columns: ConfigColumn[], issues: Issue[]): Column[] {
 }
 
 function issuesFrom(data: unknown): Issue[] {
-  if (data && typeof data === "object" && "issues" in data) {
-    return (data as { issues: Issue[] }).issues ?? []
+  if (!data || typeof data !== "object") return []
+  const raw =
+    "issues" in data && Array.isArray((data as { issues: unknown }).issues)
+      ? (data as { issues: unknown[] }).issues
+      : "values" in data && Array.isArray((data as { values: unknown }).values)
+        ? (data as { values: unknown[] }).values
+        : []
+  const issues: Issue[] = []
+  for (const item of raw) {
+    if (typeof item === "string" || typeof item === "number") {
+      issues.push({ key: "", id: String(item) })
+      continue
+    }
+    if (!item || typeof item !== "object") continue
+    const rec = item as Record<string, unknown>
+    const fields =
+      rec.fields && typeof rec.fields === "object"
+        ? (rec.fields as Issue["fields"])
+        : undefined
+    issues.push({
+      key: typeof rec.key === "string" ? rec.key : "",
+      id: rec.id != null ? String(rec.id) : undefined,
+      fields,
+    })
   }
-  return []
+  return issues
+}
+
+async function issuesWithFields(
+  settings: Settings,
+  fetchFn: FetchFn,
+  issues: Issue[],
+): Promise<{ ok: true; issues: Issue[] } | BoardFail> {
+  if (issues.every((issue) => issue.fields?.status != null)) {
+    return { ok: true, issues }
+  }
+  const ids = issues.map((issue) => issue.key || issue.id).filter(Boolean)
+  if (ids.length === 0) return { ok: true, issues }
+  const bulk = await jiraGet(
+    settings,
+    "/rest/api/3/issue/bulkfetch",
+    fetchFn,
+    { method: "POST", body: { issueIdsOrKeys: ids, fields: ["summary", "status", "assignee"] } },
+  )
+  if (!bulk.ok) return bulk
+  return { ok: true, issues: issuesFrom(bulk.data) }
 }
 
 async function loadBoardFromStatuses(
@@ -148,21 +202,30 @@ async function loadBoardFromStatuses(
     }
   }
   const jql = `project = "${settings.projectKey.replaceAll('"', "")}"`
-  const query = new URLSearchParams({
-    jql,
-    fields: "summary,status,assignee",
-    maxResults: "100",
-  })
   const issuesRes = await jiraGet(
     settings,
-    `/rest/api/3/search/jql?${query}`,
+    "/rest/api/3/search/jql",
     fetchFn,
+    {
+      method: "POST",
+      body: {
+        jql,
+        fields: ["summary", "status", "assignee"],
+        maxResults: 100,
+      },
+    },
   )
   if (!issuesRes.ok) return issuesRes
+  const filled = await issuesWithFields(
+    settings,
+    fetchFn,
+    issuesFrom(issuesRes.data),
+  )
+  if (!filled.ok) return filled
   return {
     ok: true,
     boardId: null,
-    columns: mapColumns(columns, issuesFrom(issuesRes.data)),
+    columns: mapColumns(columns, filled.issues),
   }
 }
 
