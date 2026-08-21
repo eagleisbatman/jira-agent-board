@@ -272,3 +272,33 @@ export async function transitionIssue(
   return { ok: true }
 }
 
+export async function setIssueLabels(
+  settings: Settings,
+  key: string,
+  add: string[],
+  remove: string[],
+  fetchFn: FetchFn = fetch,
+): Promise<{ ok: true } | WriteFail> {
+  if (add.length === 0 && remove.length === 0) {
+    return { ok: false, status: 400, message: "Could not save this issue." }
+  }
+  const exists = await jiraGet(
+    settings,
+    `/rest/api/3/issue/${encodeURIComponent(key)}?fields=key`,
+    fetchFn,
+  )
+  if (!exists.ok) return exists
+  const labels = [
+    ...add.map((label) => ({ add: label })),
+    ...remove.map((label) => ({ remove: label })),
+  ]
+  const result = await jiraWrite(
+    settings,
+    `/rest/api/3/issue/${encodeURIComponent(key)}`,
+    fetchFn,
+    { method: "PUT", body: { update: { labels } } },
+  )
+  if (!result.ok) return result
+  return { ok: true }
+}
+

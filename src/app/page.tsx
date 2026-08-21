@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import { AppHeader } from "@/components/app-header"
 import { BoardError } from "@/components/board-error"
+import { AgentChat } from "@/components/agent-chat"
 import { CreateIssue } from "@/components/create-issue"
 import { MoveIssue } from "@/components/move-issue"
 import { Button } from "@/components/ui/button"
@@ -61,16 +62,19 @@ async function ConnectedBoard({ settings }: { settings: Settings }) {
   const columns = result.columns
   if (columns.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>No issues</CardTitle>
-            <CardDescription>{settings.projectKey} is connected.</CardDescription>
-          </CardHeader>
-          <CardFooter className="justify-end">
-            <CreateIssue />
-          </CardFooter>
-        </Card>
+      <div className="flex flex-1 flex-col gap-3">
+        <div className="flex flex-1 flex-col items-center justify-center gap-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>No issues</CardTitle>
+              <CardDescription>{settings.projectKey} is connected.</CardDescription>
+            </CardHeader>
+            <CardFooter className="justify-end">
+              <CreateIssue />
+            </CardFooter>
+          </Card>
+        </div>
+        <AgentChat projectKey={settings.projectKey} />
       </div>
     )
   }
@@ -107,6 +111,7 @@ async function ConnectedBoard({ settings }: { settings: Settings }) {
           </section>
         ))}
       </div>
+      <AgentChat projectKey={settings.projectKey} />
     </div>
   )
 }
