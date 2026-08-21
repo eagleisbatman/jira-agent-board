@@ -20,8 +20,6 @@ COPY . .
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-# Auth.js reads AUTH_SECRET when the config module loads during `next build`.
-# Runtime must set a real secret. This value is not used for cookies in prod.
 ENV AUTH_SECRET=build-time-placeholder
 ENV AUTH_TRUST_HOST=true
 
@@ -42,6 +40,8 @@ RUN mkdir .next && chown bun:bun .next
 
 COPY --from=builder --chown=bun:bun /app/.next/standalone ./
 COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
+
+RUN mkdir -p /app/data && chown bun:bun /app/data
 
 USER bun
 
