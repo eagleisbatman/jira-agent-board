@@ -123,4 +123,121 @@ describe("loadBoard", () => {
       { key: "ABC-2", summary: "Second", assignee: null },
     ])
   })
+
+  test("zero Agile boards uses statuses and search/jql", async () => {
+    const seen: string[] = []
+    const fetchFn = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      seen.push(`${init?.method ?? "GET"} ${url}`)
+      if (url.endsWith("/myself")) return json({ accountId: "1" })
+      if (url.includes("/project/") && url.endsWith("/statuses")) {
+        return json([
+          {
+            id: "10000",
+            name: "Story",
+            statuses: [
+              { id: "1", name: "To Do" },
+              { id: "3", name: "Done" },
+            ],
+          },
+          {
+            id: "10001",
+            name: "Bug",
+            statuses: [
+              { id: "1", name: "To Do" },
+              { id: "2", name: "In Progress" },
+            ],
+          },
+        ])
+      }
+      if (url.includes("/project/")) return json({ key: "ABC" })
+      if (url.includes("/board?") && !url.includes("/issue")) {
+        return json({ values: [] })
+      }
+      if (url.includes("/search/jql")) {
+        return json({
+          issues: [
+            {
+              key: "ABC-1",
+              fields: {
+                summary: "First",
+                status: { id: "1", name: "To Do" },
+                assignee: { displayName: "Ada" },
+              },
+            },
+            {
+              key: "ABC-2",
+              fields: {
+                summary: "Second",
+                status: { id: "3", name: "Done" },
+                assignee: null,
+              },
+            },
+          ],
+        })
+      }
+      return json({}, 404)
+    }
+    const result = await loadBoard(settings, fetchFn)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("expected ok")
+    expect(result.boardId).toBeNull()
+    expect(result.columns.map((c) => c.name)).toEqual(["To Do", "Done", "In Progress"])
+    expect(result.columns.map((c) => c.statusIds)).toEqual([["1"], ["3"], ["2"]])
+    expect(result.columns[0]?.cards).toEqual([
+      { key: "ABC-1", summary: "First", assignee: "Ada" },
+    ])
+    expect(result.columns[1]?.cards).toEqual([
+      { key: "ABC-2", summary: "Second", assignee: null },
+    ])
+    expect(seen.some((u) => u.includes("/search/jql"))).toBe(true)
+    expect(seen.some((u) => u.includes("/rest/api/3/search?") || u.endsWith("/rest/api/3/search"))).toBe(false)
+    expect(seen.some((u) => u.includes("/rest/agile/1.0/board/") && u.includes("/issue"))).toBe(false)
+  })
+
+  test("zero issues on a no-board project is success", async () => {
+    const fetchFn = async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/myself")) return json({ accountId: "1" })
+      if (url.includes("/project/") && url.endsWith("/statuses")) {
+        return json([
+          { id: "10000", name: "Task", statuses: [{ id: "1", name: "To Do" }] },
+        ])
+      }
+      if (url.includes("/project/")) return json({ key: "ABC" })
+      if (url.includes("/board?") && !url.includes("/issue")) {
+        return json({ values: [] })
+      }
+      if (url.includes("/search/jql")) return json({ issues: [] })
+      return json({}, 404)
+    }
+    const result = await loadBoard(settings, fetchFn)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("expected ok")
+    expect(result.boardId).toBeNull()
+    expect(result.columns.map((c) => c.name)).toEqual(["To Do"])
+    expect(result.columns[0]?.cards).toEqual([])
+  })
+
+  test("Agile list 404 is treated as zero boards", async () => {
+    const fetchFn = async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/myself")) return json({ accountId: "1" })
+      if (url.includes("/project/") && url.endsWith("/statuses")) {
+        return json([
+          { id: "10000", name: "Task", statuses: [{ id: "1", name: "To Do" }] },
+        ])
+      }
+      if (url.includes("/project/")) return json({ key: "ABC" })
+      if (url.includes("/board?") && !url.includes("/issue")) {
+        return json({}, 404)
+      }
+      if (url.includes("/search/jql")) return json({ issues: [] })
+      return json({}, 404)
+    }
+    const result = await loadBoard(settings, fetchFn)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("expected ok")
+    expect(result.boardId).toBeNull()
+  })
 })

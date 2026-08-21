@@ -14,7 +14,7 @@ export type Column = {
 
 export type BoardOk = {
   ok: true
-  boardId: string
+  boardId: string | null
   columns: Column[]
 }
 
@@ -110,6 +110,65 @@ function mapColumns(columns: ConfigColumn[], issues: Issue[]): Column[] {
   })
 }
 
+function issuesFrom(data: unknown): Issue[] {
+  if (data && typeof data === "object" && "issues" in data) {
+    return (data as { issues: Issue[] }).issues ?? []
+  }
+  return []
+}
+
+function columnsFromStatuses(data: unknown): ConfigColumn[] {
+  if (!Array.isArray(data)) return []
+  const columns: ConfigColumn[] = []
+  const seen = new Set<string>()
+  for (const type of data) {
+    if (!type || typeof type !== "object" || !("statuses" in type)) continue
+    const statuses = (type as { statuses?: unknown }).statuses
+    if (!Array.isArray(statuses)) continue
+    for (const status of statuses) {
+      if (!status || typeof status !== "object" || !("id" in status)) continue
+      const id = String((status as { id: unknown }).id)
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      const name =
+        "name" in status && typeof (status as { name: unknown }).name === "string"
+          ? (status as { name: string }).name
+          : id
+      columns.push({ name, statuses: [{ id }] })
+    }
+  }
+  return columns
+}
+
+async function loadBoardFromStatuses(
+  settings: Settings,
+  fetchFn: FetchFn,
+): Promise<BoardResult> {
+  const statuses = await jiraGet(
+    settings,
+    `/rest/api/3/project/${encodeURIComponent(settings.projectKey)}/statuses`,
+    fetchFn,
+  )
+  if (!statuses.ok) return statuses
+  const jql = `project = "${settings.projectKey.replaceAll('"', "")}"`
+  const query = new URLSearchParams({
+    jql,
+    fields: "summary,status,assignee",
+    maxResults: "100",
+  })
+  const issuesRes = await jiraGet(
+    settings,
+    `/rest/api/3/search/jql?${query}`,
+    fetchFn,
+  )
+  if (!issuesRes.ok) return issuesRes
+  return {
+    ok: true,
+    boardId: null,
+    columns: mapColumns(columnsFromStatuses(statuses.data), issuesFrom(issuesRes.data)),
+  }
+}
+
 export async function loadBoard(
   settings: Settings,
   fetchFn: FetchFn = fetch,
@@ -130,15 +189,18 @@ export async function loadBoard(
       `/rest/agile/1.0/board?projectKeyOrId=${encodeURIComponent(settings.projectKey)}`,
       fetchFn,
     )
-    if (!listed.ok) return listed
+    if (!listed.ok && listed.status !== 404) return listed
     const values =
-      listed.data && typeof listed.data === "object" && "values" in listed.data
+      listed.ok &&
+      listed.data &&
+      typeof listed.data === "object" &&
+      "values" in listed.data
         ? (listed.data as { values: { id: number | string; type?: string }[] })
             .values
         : []
     boardId = pickBoardId(values)
     if (!boardId) {
-      return { ok: false, status: 404, message: jiraMessage(404) }
+      return loadBoardFromStatuses(settings, fetchFn)
     }
   }
 
@@ -162,15 +224,8 @@ export async function loadBoard(
     fetchFn,
   )
   if (!issuesRes.ok) return issuesRes
-  const issues =
-    issuesRes.data &&
-    typeof issuesRes.data === "object" &&
-    "issues" in issuesRes.data
-      ? ((issuesRes.data as { issues: Issue[] }).issues ??
-        [])
-      : []
 
-  return { ok: true, boardId, columns: mapColumns(columns, issues) }
+  return { ok: true, boardId, columns: mapColumns(columns, issuesFrom(issuesRes.data)) }
 }
 
 async function jiraWrite(
