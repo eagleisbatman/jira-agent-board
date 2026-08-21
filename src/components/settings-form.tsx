@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { putSettings } from "@/lib/put-settings"
 import type { PublicSettings } from "@/lib/settings"
 
 type SettingsResponse = PublicSettings & {
@@ -50,36 +51,39 @@ export function SettingsForm({ initial }: { initial: PublicSettings }) {
     setTesting(true)
     setErrors({})
     setFormError(null)
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+    try {
+      const result = await putSettings({
         siteUrl,
         email,
         apiToken,
         projectKey,
         boardId,
-      }),
-    })
-    const data = (await res.json()) as SettingsResponse
-    setTesting(false)
-    if (data.errors) {
-      setErrors(data.errors)
-      return
+      })
+      if (!result.ok) {
+        setFormError(result.message)
+        return
+      }
+      const data = result.data as SettingsResponse
+      if (data.errors) {
+        setErrors(data.errors)
+        return
+      }
+      if (data.configured) {
+        setTokenSet(data.tokenSet)
+        setTokenLast4(data.tokenLast4)
+        setApiToken("")
+      }
+      if (data.error) {
+        setFormError(data.error.message)
+        setConnected(false)
+        return
+      }
+      setConnected(true)
+      router.push("/")
+      router.refresh()
+    } finally {
+      setTesting(false)
     }
-    if (data.configured) {
-      setTokenSet(data.tokenSet)
-      setTokenLast4(data.tokenLast4)
-      setApiToken("")
-    }
-    if (data.error) {
-      setFormError(data.error.message)
-      setConnected(false)
-      return
-    }
-    setConnected(true)
-    router.push("/")
-    router.refresh()
   }
 
   return (
